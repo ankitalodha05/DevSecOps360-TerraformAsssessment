@@ -1,0 +1,52 @@
+Q: What is this Terraform Assessment repo?
+A: This repo is used to assess Terraform code without deploying it. It checks security, correctness, change impact, and policy compliance at plan time.
+
+Q: Are you deploying anything here?
+A: No. We only run terraform plan, never terraform apply.
+
+Q: Why do you generate tfplan.json?
+A: Terraform plan output is converted to JSON so it can be analyzed programmatically and evaluated by OPA policies.
+
+Q: What policy have you applied in OPA?
+A: We have applied a safety policy that blocks any Terraform plan which tries to delete existing resources.
+
+Q: How does OPA decide pass or fail?
+A: OPA reads the terraform plan JSON. If it finds a delete action, the policy denies it and the assessment fails. If there are no deletes, it passes.
+
+Q: Where can I see the final decision?
+A: The final decision is stored in metadata.json and detailed in opa_decision.json for audit purposes.
+
+Q: Why is this useful in real projects?
+A: It prevents accidental or unauthorized destructive changes by enforcing guardrails before infrastructure is applied.
+
+Q:why Tfsec ?
+A:What tfsec actually checks
+
+	tfsec looks for things like:
+	• Publicly exposed resources	
+	• Open security groups
+	• Insecure storage settings
+	• Missing encryption
+	• Weak IAM or access configurations
+
+	It does this without deploying anything.
+	
+Q:Why ScoutSuite is used in a later stage?
+A:ScoutSuite is used to scan the actual cloud environment, not the Terraform code.
+Because of this, it makes sense to run it after we understand what Terraform is planning to change.
+
+Q:Why not run ScoutSuite first?
+A:Running ScoutSuite first would give us a long list of existing issues without context.
+  By running it later, we can compare:
+  • What already exists in the cloud
+  • What Terraform is planning to change
+
+  This makes the findings more meaningful.
+  
+Q:How the stages connect (simple logic)?
+A:tfsec → checks Terraform code security
+ terraform plan → shows intended changes
+ OPA → enforces governance on changes
+ ScoutSuite → validates real cloud posture after or alongside changes
+ 
+IMP:ScoutSuite is run later because it scans the live cloud environment, while tfsec and OPA work on Terraform code and plan. Running it later gives better context and avoids noise
