@@ -9,8 +9,8 @@ Build a **simple, read-only dashboard UI** for the **Terraform Assessment** prod
 - Review security, plan, and policy results
 - Download assessment artifacts
 
-⚠️ **This is NOT a Terraform editor or deployment UI**  
-⚠️ **No infrastructure apply actions**
+**This is NOT a Terraform editor or deployment UI**  
+**No infrastructure apply actions**
 
 ---
 
