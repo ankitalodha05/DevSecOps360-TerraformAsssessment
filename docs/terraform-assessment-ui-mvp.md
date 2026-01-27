@@ -5,47 +5,43 @@
 Build a **simple, read-only dashboard UI** for the **Terraform Assessment** product that allows users to:
 
 - Start an infrastructure assessment
-- View assessment run status
-- Review security, plan, and policy results
+- Track assessment runs
+- Review security, drift, and policy results
 - Download assessment artifacts
 
-**This is NOT a Terraform editor or deployment UI**  
-**No infrastructure apply actions**
+This is **NOT** a Terraform editor or deployment UI  
+No `terraform apply`, no inline editing, no manual IaC uploads
 
 ---
 
 ## Scope (Phase-1 MVP)
 
-- Cloud: **Azure only**
-- Assessment Scope: **Network only**
-  - VNet
-  - Subnet
-  - NSG
-  - NIC
-- Mode:
+- **Cloud**: Azure only
+- **Assessment Scope**: Network only  
+  (VNet, Subnet, NSG, NIC)
+- **Assessment Modes**:
   - From existing cloud (default)
-  - From Terraform repository (optional toggle)
+  - From Terraform repository (advanced / optional)
 
 ---
 
-## Screens to Build
+## Screen 1: Start Assessment
 
-### Screen 1: Start Assessment
+**Purpose:** Collect minimal inputs and trigger an assessment run.
 
-**Purpose:** Collect minimal inputs and trigger assessment.
+### Fields
 
-#### Fields
 - **Client ID** (text, required)  
   Example: `ttms`
 
 - **Cloud Provider** (dropdown)  
-  - Azure (enabled)
-  - AWS / GCP (disabled, future)
+  - Azure (enabled)  
+  - AWS / GCP (disabled – future)
 
 - **Subscription ID** (text, required)
 
-- **Assessment Scope** (dropdown)
-  - Network (only option for MVP)
+- **Scope** (read-only helper text)  
+  `Network (VNet, Subnet, NSG, NIC)`
 
 - **Assessment Mode** (radio)
   - From Existing Cloud (default)
@@ -54,47 +50,63 @@ Build a **simple, read-only dashboard UI** for the **Terraform Assessment** prod
 - **Repository Path** (text)  
   - Visible **only if** mode = From Terraform Repository
 
-- **Run Name** (optional)
+- **Run Name** (optional)  
   - Auto-generated if empty
 
-#### Actions
-- **Start Assessment** (primary button)
+### Actions
+- **Start Assessment** (primary)
 - Reset
 
-#### Validation
+### Validation
 - `client_id` and `subscription_id` are mandatory
-- `repo_path` mandatory if mode = from-repo
+- `repo_path` is mandatory if mode = from-repo
 
 ---
 
-### Screen 2: Assessment Runs List
+## Screen 2: Assessment Runs List
 
 **Purpose:** Show all assessment runs.
 
-#### Table Columns
+### Table Columns
 - Run ID
 - Client ID
 - Cloud
 - Scope
 - Status (badge)
-  - `IN_PROGRESS`
-  - `POLICY_PASSED`
-  - `POLICY_FAILED`
-  - `FAILED`
 - Started At
 - Completed At
 
-#### Actions
+### UI Status Values (only these)
+- `IN_PROGRESS`
+- `POLICY_PASSED`
+- `POLICY_FAILED`
+- `FAILED`
+
+### Actions
 - Click row → open Run Details
-- Refresh list
+- Refresh
 
 ---
 
-### Screen 3: Run Details
+## UI Status Mapping (Important)
+
+Backend internal statuses **must NOT be shown directly**.
+
+### Backend → UI Mapping
+
+- `POLICY_PASSED` → `POLICY_PASSED`
+- `POLICY_FAILED` → `POLICY_FAILED`
+- Any status ending with `_FAILED`  
+  (e.g. `TF_PLAN_FAILED`, `OPA_FAILED`) → `FAILED`
+- Any other state → `IN_PROGRESS`
+
+---
+
+## Screen 3: Run Details
 
 **Purpose:** Display detailed assessment results.
 
-#### Header
+### Header
 - Run ID
 - Client ID
 - Cloud
@@ -110,10 +122,14 @@ Build a **simple, read-only dashboard UI** for the **Terraform Assessment** prod
 
 ### Tab 1: Summary (Default)
 
-- Overall Status: Passed / Failed
-- Drift Detected: Yes / No
-- Security Issues Count
-- Policy Result: Passed / Failed
+Show in clear, non-technical language:
+
+- **Overall Status**: Passed / Failed
+- **Drift Detected**: Yes / No  
+  (derived from `plan.has_changes`)
+- **Security Issues**: total count
+- **Policy Gate**: Passed / Failed  
+  (derived from OPA decision)
 
 ---
 
@@ -130,11 +146,14 @@ Build a **simple, read-only dashboard UI** for the **Terraform Assessment** prod
   - Resource / File
   - Message
 
+**Note:**  
+For large environments, the UI should support pagination or show only the top N findings (e.g., top 20) by default, with an option to view all.
+
 ---
 
 ### Tab 3: Planned Infrastructure Changes (Terraform Plan)
 
-- Changes summary:
+- Change summary:
   - Add
   - Modify
   - Delete (highlight red if > 0)
@@ -156,7 +175,8 @@ Plain-English explanation example:
 
 ### Tab 5: Downloads (Advanced)
 
-Download links for:
+Provide download links for:
+
 - `tfsec.json`
 - `tfplan.json`
 - `opa_decision.json`
@@ -166,12 +186,15 @@ Download links for:
   - `tf_plan.log`
   - `opa.log`
 
+🔒 **Security Note:**  
+Initial implementation may use direct file paths for local development.  
+In production, these will be replaced with **time-limited (signed) download URLs**.
+
 ---
 
 ## Backend API Contract (MVP)
 
-### Start Assessment
-**POST** `/runs`
+### POST /runs — Start Assessment
 
 ```json
 {
@@ -196,29 +219,97 @@ Response:
 
 ---
 
-### List Runs
+### GET /runs — List Assessment Runs
 
-**GET** `/runs`
+Returns a list of run summaries.
 
-Returns list of runs with summary metadata.
+#### Sample Response
+
+```json
+[
+  {
+    "run_id": "2026-01-23T122848Z-ttms",
+    "client_id": "ttms",
+    "status": "POLICY_PASSED",
+    "started_at": "2026-01-23T12:28:48Z",
+    "completed_at": "2026-01-23T12:29:10Z"
+  },
+  {
+    "run_id": "2026-01-22T094112Z-abc",
+    "client_id": "abc",
+    "status": "IN_PROGRESS",
+    "started_at": "2026-01-22T09:41:12Z",
+    "completed_at": null
+  }
+]
+```
 
 ---
 
-### Get Run Details
+### GET /runs/{run_id} — Get Run Details
 
-**GET** `/runs/{run_id}`
+Returns a single structured object containing:
 
-Returns:
+* `summary`
+* `security`
+* `plan`
+* `policy`
+* `artifacts`
 
-* Run metadata
-* Stage summaries (tfsec, plan, opa)
-* Artifact download paths / URLs
+#### Sample Response
+
+```json
+{
+  "run_id": "2026-01-23T122848Z-ttms",
+  "client_id": "ttms",
+  "cloud": "azure",
+  "scope": "network",
+  "status": "POLICY_PASSED",
+  "started_at": "2026-01-23T12:28:48Z",
+  "completed_at": "2026-01-23T12:29:10Z",
+
+  "summary": {
+    "overall_status": "PASSED",
+    "drift_detected": false,
+    "security_issues": 0,
+    "policy_gate": "PASSED"
+  },
+
+  "security": {
+    "severity_breakdown": {
+      "critical": 0,
+      "high": 0,
+      "medium": 0,
+      "low": 0
+    },
+    "top_findings": []
+  },
+
+  "plan": {
+    "has_changes": false,
+    "add": 0,
+    "modify": 0,
+    "delete": 0
+  },
+
+  "policy": {
+    "passed": true,
+    "deny_count": 0,
+    "deny_messages": []
+  },
+
+  "artifacts": {
+    "tfsec": "runs/<id>/reports/iac/tfsec.json",
+    "tfplan": "runs/<id>/reports/tf/tfplan.json",
+    "opa": "runs/<id>/reports/opa/opa_decision.json",
+    "metadata": "runs/<id>/metadata/metadata.json"
+  }
+}
+```
 
 ---
 
-### Download Artifacts
-
-**GET** `/runs/{run_id}/artifacts/{artifact_name}`
+### GET /runs/{run_id}/artifacts/{artifact_name} — Download Artifact
 
 Examples:
 
@@ -234,33 +325,32 @@ Examples:
 
 * Read-only UI
 * Clear status indicators
-* Explain results in simple language
+* Simple language (assessment-style, not DevOps tool)
 * No Terraform apply
-* No inline code editing
+* No inline editing
 * No credential exposure
-* No dashboards/graphs for MVP
+* No dashboards/graphs in MVP
 
 ---
 
 ## Definition of Done (UI MVP)
 
 * User can start an assessment
-* User can see run status in list
+* User can see runs list
 * User can open run details
-* User can review summary, findings, plan, policy
-* User can download assessment artifacts
+* User can review summary, security, plan, policy
+* User can download artifacts
 
 ---
 
 ## Notes
 
-This UI is designed as a **security and compliance assessment report**, not a DevOps control panel.
-Focus on clarity, explainability, and audit-readiness.
+This UI represents a **security and compliance assessment report**, not an infrastructure management console.
 
-Future phases may add:
+Future phases may include:
 
-* Multi-cloud
-* More scopes
+* Multi-cloud support
+* Additional scopes
 * Dashboards
 * AI recommendations
 
