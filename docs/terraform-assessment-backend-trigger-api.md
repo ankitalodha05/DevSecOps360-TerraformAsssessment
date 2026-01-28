@@ -34,8 +34,7 @@ runs/<run_id>/...
 ---
 
 ## Decision (Locked)
-
-**Option A selected:**  
+  
 `POST /runs` will **trigger the real Python pipeline** and return a real `run_id`.
 
 ---
