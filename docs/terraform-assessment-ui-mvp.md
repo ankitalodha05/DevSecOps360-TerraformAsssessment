@@ -1,27 +1,33 @@
-# Terraform Assessment – UI Dashboard (Phase-1 MVP)
+# **Terraform Assessment – UI Dashboard (Phase-1 MVP)**
 
 ## Objective
 
 Build a **simple, read-only dashboard UI** for the **Terraform Assessment** product that allows users to:
 
-- Start an infrastructure assessment
-- Track assessment runs
-- Review security, drift, and policy results
-- Download assessment artifacts
+* Start an infrastructure assessment
+* Track assessment runs
+* Review security, drift, and policy results
+* Download assessment artifacts
 
-This is **NOT** a Terraform editor or deployment UI  
+This is **NOT** a Terraform editor or deployment UI
 No `terraform apply`, no inline editing, no manual IaC uploads
 
 ---
 
 ## Scope (Phase-1 MVP)
 
-- **Cloud**: Azure only
-- **Assessment Scope**: Network only  
+* **Cloud**: Azure only
+
+* **Assessment Scope**: Network only
   (VNet, Subnet, NSG, NIC)
-- **Assessment Modes**:
-  - From existing cloud (default)
-  - From Terraform repository (advanced / optional)
+
+* **Assessment Modes (UI)**:
+
+  * From existing cloud
+  * From Terraform repository
+
+> **Note:** Internally, backend uses `scenario` instead of `mode`.
+> Mapping is defined below.
 
 ---
 
@@ -31,35 +37,41 @@ No `terraform apply`, no inline editing, no manual IaC uploads
 
 ### Fields
 
-- **Client ID** (text, required)  
+* **Client ID** (text, required)
   Example: `ttms`
 
-- **Cloud Provider** (dropdown)  
-  - Azure (enabled)  
-  - AWS / GCP (disabled – future)
+* **Cloud Provider** (dropdown)
 
-- **Subscription ID** (text, required)
+  * Azure (enabled)
+  * AWS / GCP (disabled – future)
 
-- **Scope** (read-only helper text)  
+* **Subscription ID** (text, required)
+
+* **Scope** (read-only helper text)
   `Network (VNet, Subnet, NSG, NIC)`
 
-- **Assessment Mode** (radio)
-  - From Existing Cloud (default)
-  - From Terraform Repository
+* **Assessment Mode** (radio)
 
-- **Repository Path** (text)  
-  - Visible **only if** mode = From Terraform Repository
+  * From Existing Cloud
+  * From Terraform Repository
 
-- **Run Name** (optional)  
-  - Auto-generated if empty
+* **Repository Path** (text)
+
+  * Visible **only if** mode = From Terraform Repository
+
+* **Run Name** (optional)
+
+  * Auto-generated if empty
 
 ### Actions
-- **Start Assessment** (primary)
-- Reset
+
+* **Start Assessment** (primary)
+* Reset
 
 ### Validation
-- `client_id` and `subscription_id` are mandatory
-- `repo_path` is mandatory if mode = from-repo
+
+* `client_id` and `subscription_id` are mandatory
+* `repo_path` is mandatory if mode = From Terraform Repository
 
 ---
 
@@ -68,23 +80,26 @@ No `terraform apply`, no inline editing, no manual IaC uploads
 **Purpose:** Show all assessment runs.
 
 ### Table Columns
-- Run ID
-- Client ID
-- Cloud
-- Scope
-- Status (badge)
-- Started At
-- Completed At
+
+* Run ID
+* Client ID
+* Cloud
+* Scope
+* Status (badge)
+* Started At
+* Completed At
 
 ### UI Status Values (only these)
-- `IN_PROGRESS`
-- `POLICY_PASSED`
-- `POLICY_FAILED`
-- `FAILED`
+
+* `IN_PROGRESS`
+* `POLICY_PASSED`
+* `POLICY_FAILED`
+* `FAILED`
 
 ### Actions
-- Click row → open Run Details
-- Refresh
+
+* Click row → open Run Details
+* Refresh
 
 ---
 
@@ -94,11 +109,11 @@ Backend internal statuses **must NOT be shown directly**.
 
 ### Backend → UI Mapping
 
-- `POLICY_PASSED` → `POLICY_PASSED`
-- `POLICY_FAILED` → `POLICY_FAILED`
-- Any status ending with `_FAILED`  
+* `POLICY_PASSED` → `POLICY_PASSED`
+* `POLICY_FAILED` → `POLICY_FAILED`
+* Any status ending with `_FAILED`
   (e.g. `TF_PLAN_FAILED`, `OPA_FAILED`) → `FAILED`
-- Any other state → `IN_PROGRESS`
+* Any other state → `IN_PROGRESS`
 
 ---
 
@@ -107,14 +122,15 @@ Backend internal statuses **must NOT be shown directly**.
 **Purpose:** Display detailed assessment results.
 
 ### Header
-- Run ID
-- Client ID
-- Cloud
-- Scope
-- Status badge
-- Start time
-- End time
-- Duration
+
+* Run ID
+* Client ID
+* Cloud
+* Scope
+* Status badge
+* Start time
+* End time
+* Duration
 
 ---
 
@@ -124,51 +140,56 @@ Backend internal statuses **must NOT be shown directly**.
 
 Show in clear, non-technical language:
 
-- **Overall Status**: Passed / Failed
-- **Drift Detected**: Yes / No  
+* **Overall Status**: Passed / Failed
+* **Drift Detected**: Yes / No
   (derived from `plan.has_changes`)
-- **Security Issues**: total count
-- **Policy Gate**: Passed / Failed  
+* **Security Issues**: total count
+* **Policy Gate**: Passed / Failed
   (derived from OPA decision)
 
 ---
 
 ### Tab 2: Security Findings (tfsec)
 
-- Severity breakdown:
-  - Critical
-  - High
-  - Medium
-  - Low
-- Findings table:
-  - Rule ID
-  - Severity
-  - Resource / File
-  - Message
+* Severity breakdown:
 
-**Note:**  
-For large environments, the UI should support pagination or show only the top N findings (e.g., top 20) by default, with an option to view all.
+  * Critical
+  * High
+  * Medium
+  * Low
+* Findings table:
+
+  * Rule ID
+  * Severity
+  * Resource / File
+  * Message
+
+**Note:**
+For large environments, show top N findings (e.g. top 20) by default, with an option to view all.
 
 ---
 
 ### Tab 3: Planned Infrastructure Changes (Terraform Plan)
 
-- Change summary:
-  - Add
-  - Modify
-  - Delete (highlight red if > 0)
-- Optional expandable list:
-  - Resource addresses
+* Change summary:
+
+  * Add
+  * Modify
+  * Delete (highlight red if > 0)
+* Optional expandable list:
+
+  * Resource addresses
 
 ---
 
 ### Tab 4: Policy Evaluation (OPA)
 
-- Policy Result: Passed / Failed
-- Deny Count
-- Deny Messages (list)
+* Policy Result: Passed / Failed
+* Deny Count
+* Deny Messages (list)
 
 Plain-English explanation example:
+
 > “This assessment failed because deleting existing infrastructure is not allowed by policy.”
 
 ---
@@ -177,24 +198,46 @@ Plain-English explanation example:
 
 Provide download links for:
 
-- `tfsec.json`
-- `tfplan.json`
-- `opa_decision.json`
-- `metadata.json`
-- Logs:
-  - `tfsec.log`
-  - `tf_plan.log`
-  - `opa.log`
+* `tfsec.json`
+* `tfplan.json`
+* `opa_decision.json`
+* `metadata.json`
+* Logs:
 
-🔒 **Security Note:**  
-Initial implementation may use direct file paths for local development.  
+  * `tfsec.log`
+  * `tf_plan.log`
+  * `opa.log`
+
+🔒 **Security Note:**
+Initial implementation may use direct file paths for local development.
 In production, these will be replaced with **time-limited (signed) download URLs**.
 
 ---
 
 ## Backend API Contract (MVP)
 
-### POST /runs — Start Assessment
+### Important: Mode vs Scenario Mapping
+
+* UI sends: **`mode`**
+* Backend expects: **`scenario`**
+
+Mapping:
+
+* UI `mode = from-repo` → backend `scenario = from-repo`
+* UI `mode = from-cloud` → backend `scenario = from-cloud`
+
+### Phase-1 Recommendation
+
+For Phase-1 MVP and demo:
+
+* Use `scenario = "from-repo"`
+* Provide `repo_path = "examples/tf_local"`
+
+This produces **full outputs** (tfsec, tfplan, opa).
+
+---
+
+### POST `/runs` — Start Assessment
 
 ```json
 {
@@ -202,11 +245,11 @@ In production, these will be replaced with **time-limited (signed) download URLs
   "cloud": "azure",
   "subscription_id": "<subscription-id>",
   "scope": "network",
-  "mode": "from-cloud",
-  "repo_path": null,
+  "scenario": "from-repo",
+  "repo_path": "examples/tf_local",
   "run_name": "optional"
 }
-````
+```
 
 Response:
 
@@ -219,7 +262,7 @@ Response:
 
 ---
 
-### GET /runs — List Assessment Runs
+### GET `/runs` — List Assessment Runs
 
 Returns a list of run summaries.
 
@@ -246,7 +289,7 @@ Returns a list of run summaries.
 
 ---
 
-### GET /runs/{run_id} — Get Run Details
+### GET `/runs/{run_id}` — Get Run Details
 
 Returns a single structured object containing:
 
@@ -309,7 +352,7 @@ Returns a single structured object containing:
 
 ---
 
-### GET /runs/{run_id}/artifacts/{artifact_name} — Download Artifact
+### GET `/runs/{run_id}/artifacts/{artifact_name}` — Download Artifact
 
 Examples:
 
@@ -353,4 +396,3 @@ Future phases may include:
 * Additional scopes
 * Dashboards
 * AI recommendations
-
