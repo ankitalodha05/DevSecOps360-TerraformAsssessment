@@ -109,6 +109,11 @@ cat <<'JSON' | python3 -m app.api_entry
 }
 JSON
 ```
+What this command does
+
+Sends a JSON request to the Python entrypoint app.api_entry via stdin.
+
+This starts a new Terraform Assessment run using Terraform code from examples/tf_local.
 
 Expected output:
 
@@ -116,9 +121,11 @@ Expected output:
 
   * `{"run_id":"<id>","status":"IN_PROGRESS"}`
 
-Note:
+What this output means
 
-* `IN_PROGRESS` is expected because the trigger returns quickly and the pipeline writes results into `runs/<run_id>`.
+run_id = unique ID for this execution. A folder is created at runs/<run_id>/.
+
+status: IN_PROGRESS = trigger returned immediately; pipeline continues and writes outputs into the run folder
 
 Add screenshot:
 
@@ -128,7 +135,7 @@ Add screenshot:
 
 ## 5) Locate the Run Folder
 
-### 5.1 Set RUN_ID (use the one printed by the trigger)
+### 5.1 Store the run id in a variable (set RUN_ID)
 
 Example:
 
