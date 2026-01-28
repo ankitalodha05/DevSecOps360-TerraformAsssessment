@@ -282,13 +282,43 @@ Use `sample-runs.tgz`:
 
 ---
 
-## Phase-1 Scope Reminder
 
-* Read-only UI
-* No terraform apply
-* No dashboards/graphs
-* Azure + Network only
+## Backend Structure & Parsing (Next Step)
 
----
+Backend structure + parsers are planned as below:
+
+```
+
+backend/
+├── package.json
+├── .env.example
+├── src/
+│   ├── server.js
+│   ├── routes/
+│   │   └── runs.routes.js
+│   ├── controllers/
+│   │   └── runs.controller.js
+│   ├── services/
+│   │   ├── pythonRunner.service.js
+│   │   ├── runsReader.service.js
+│   │   └── artifact.service.js
+│   ├── parsers/
+│   │   ├── tfsec.parser.js
+│   │   ├── tfplan.parser.js
+│   │   └── opa.parser.js
+│   └── utils/
+│       ├── statusMap.js
+│       └── safeJson.js
+└── README.md
+
+```
+
+### Notes
+- Use `sample-runs.tgz` as reference data while implementing parsing logic.
+- Parsers will extract summary data from:
+  - `tfsec.json`
+  - `tfplan.json`
+  - `opa_decision.json`
+
 
 ## End of Document
