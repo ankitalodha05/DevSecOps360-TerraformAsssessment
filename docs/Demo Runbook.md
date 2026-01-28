@@ -8,7 +8,12 @@ It shows:
 - How to interpret final status from metadata
 
 ---
+> **Deep Dive**  
+> Learn everything about tfsec, how it fits in the assessment pipeline, and how it differs from OPA and Scout Suite:  
+> [tfsec – Complete Security Guide](docs/tfsec-overview-and-role-in-terraform-assessment.md)
 
+
+---
 ## 1) Prerequisites (Before Demo)
 
 ### 1.1 Tools installed
