@@ -396,3 +396,11 @@ ls "runs/$RUN_ID/reports/iac/tfsec.json"
 ls "runs/$RUN_ID/reports/tf/tfplan.json"
 ls "runs/$RUN_ID/reports/opa/opa_decision.json"
 ```
+### Open reports
+
+```bash
+cat "runs/$RUN_ID/reports/iac/tfsec.json" | jq .
+cat "runs/$RUN_ID/reports/tf/tfplan.json" | jq .
+cat "runs/$RUN_ID/reports/opa/opa_decision.json" | jq .
+```
+### END OF THE DOCUMENT
