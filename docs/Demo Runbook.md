@@ -10,7 +10,7 @@ It shows:
 ---
 > **Deep Dive**  
 > Learn everything about tfsec, how it fits in the assessment pipeline, and how it differs from OPA and Scout Suite:  
-> [tfsec – Complete Security Guide](docs/tfsec-overview-and-role-in-terraform-assessment.md)
+> [tfsec – Complete Security Guide](tfsec-overview-and-role-in-terraform-assessment.md)
 
 
 ---
