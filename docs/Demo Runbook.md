@@ -136,6 +136,10 @@ Example:
 RUN_ID=2026-01-28T083604Z-unknown-a43942
 echo $RUN_ID
 ```
+**What this does:**
+
+1. Stores the run ID in a shell variable (`RUN_ID`) so it can be reused easily in later commands.
+2. Avoids repeated copy-paste and keeps commands short, clean, and error-free.
 
 ### 5.2 Confirm run folder exists
 
