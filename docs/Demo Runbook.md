@@ -1,23 +1,27 @@
 # DevSecOps360 – Terraform Assessment (Demo Runbook)
 
-This document is a step-by-step runbook to demo the Terraform Assessment workflow end-to-end.
-It shows:
-- How to trigger a run
-- Where the run outputs are stored
-- How to verify each stage output (tfsec, plan, OPA)
-- How to interpret final status from metadata
+This document is a step-by-step runbook to demonstrate the Terraform Assessment workflow end-to-end in a demo.
+
+It covers:
+- How an assessment run is triggered
+- How runs are uniquely identified and stored
+- Where each tool’s output is generated
+- How to verify security, plan, and policy results
+- How to interpret the final assessment status
 
 ---
-> **Deep Dive**  
-> Learn everything about tfsec, how it fits in the assessment pipeline, and how it differs from OPA and Scout Suite:  
+
+> **Deep Dive (Optional Reading)**  
+> Detailed explanation of tfsec, its role in the assessment pipeline, and how it differs from OPA and Scout Suite:  
 > [tfsec – Complete Security Guide](tfsec-overview-and-role-in-terraform-assessment.md)
 
-
 ---
+
 ## 1) Prerequisites (Before Demo)
 
-### 1.1 Tools installed
-Run these commands and confirm versions show up:
+### 1.1 Required tools
+
+Verify that the following tools are installed:
 
 ```bash
 python3 --version
@@ -25,11 +29,13 @@ terraform --version
 jq --version
 ````
 
-If any command is not found, install it before the demo.
+If any command is not found, install the tool before starting the demo.
+
+---
 
 ### 1.2 Repository location
 
-Go to the repository root:
+Navigate to the Terraform Assessment repository root:
 
 ```bash
 cd ~/devsecops360/terraform-assessment
@@ -37,15 +43,33 @@ pwd
 ls -la
 ```
 
-Expected: you should see folders like `app/`, `examples/`, and `runs/` (if runs already exist).
+Expected:
+
+* `app/` → pipeline code
+* `examples/` → sample Terraform inputs
+* `runs/` → assessment outputs (created after trigger)
 
 ---
 
-## 2) Quick Architecture (What happens when we run)
+## 2) High-Level Execution Flow
 
-### 2.1 Run folder structure (output)
+When a run is triggered:
 
-Every run creates a unique folder:
+1. A unique `run_id` is generated
+2. A dedicated folder is created under `runs/<run_id>/`
+3. Tools execute sequentially:
+
+   * tfsec (security scan)
+   * terraform plan (no apply)
+   * OPA (policy evaluation)
+4. Results are written as JSON artifacts
+5. Final status is updated in metadata
+
+---
+
+## 3) Run Output Structure
+
+Each execution creates a dedicated folder:
 
 ```
 runs/<run_id>/
@@ -62,43 +86,51 @@ runs/<run_id>/
     *.log
 ```
 
-* `metadata.json` = single source of truth for overall status
-* `tfsec.json` = security scan output
-* `tfplan.json` = terraform plan output (no apply)
-* `opa_decision.json` = policy decision (pass/fail)
+Purpose of each file:
+
+* `metadata.json` → overall run status and execution details
+* `tfsec.json` → security scan findings
+* `tfplan.json` → terraform plan in JSON format
+* `opa_decision.json` → policy evaluation result
+* `logs/` → execution logs for troubleshooting
 
 ---
 
-## 3) Demo Scenario A (Recommended): from-repo (Full pipeline)
+## 4) Demo Scenario A: from-repo (Full Pipeline)
 
-This scenario runs the full pipeline:
+This is the recommended demo scenario.
+
+It executes:
 
 * tfsec
 * terraform plan
-* OPA policy check
-  And generates all artifacts under `runs/<run_id>`.
+* OPA policy checks
 
-### 3.1 Confirm input repo_path exists
+and produces all assessment artifacts.
 
-This demo uses the sample Terraform code in:
+---
+
+### 4.1 Verify input Terraform code
+
+The demo uses sample Terraform code located at:
 
 ```bash
 ls -la examples/tf_local
 ```
 
-Expected: Terraform files are present (e.g., `main.tf`, `providers.tf`, etc).
+Expected:
 
-Add screenshot:
+* Terraform configuration files such as `main.tf`, `providers.tf`, etc.
+
+Screenshot to capture:
 
 * Screenshot A1: `ls -la examples/tf_local`
 
 ---
 
-## 4) Trigger the Run (Python trigger via stdin)
+## 5) Trigger the Assessment Run
 
-### 4.1 Start a run
-
-Copy-paste this exactly:
+### 5.1 Start a new run
 
 ```bash
 cat <<'JSON' | python3 -m app.api_entry
@@ -109,86 +141,93 @@ cat <<'JSON' | python3 -m app.api_entry
 }
 JSON
 ```
-What this command does
 
-Sends a JSON request to the Python entrypoint app.api_entry via stdin.
+**What this command does:**
 
-This starts a new Terraform Assessment run using Terraform code from examples/tf_local.
+* Sends a JSON request to the pipeline entrypoint via standard input
+* Starts a new Terraform Assessment using the specified Terraform code
 
-Expected output:
+**Expected output:**
 
-* A JSON response on stdout like:
+```json
+{"run_id":"<run_id>","status":"IN_PROGRESS"}
+```
 
-  * `{"run_id":"<id>","status":"IN_PROGRESS"}`
+**What this output means:**
 
-What this output means
+* `run_id` uniquely identifies this execution
+* `IN_PROGRESS` indicates the pipeline has started and continues running asynchronously
 
-run_id = unique ID for this execution. A folder is created at runs/<run_id>/.
+Screenshot to capture:
 
-status: IN_PROGRESS = trigger returned immediately; pipeline continues and writes outputs into the run folder
-
-Add screenshot:
-
-* Screenshot A2: trigger command + stdout response
+* Screenshot A2: trigger command and returned JSON
 
 ---
 
-## 5) Locate the Run Folder
+## 6) Locate the Run Folder
 
-### 5.1 Store the run id in a variable (set RUN_ID)
-
-Example:
+### 6.1 Store the run ID in a variable
 
 ```bash
-RUN_ID=<use-the-one-printed-by-trigger>
+RUN_ID=<run_id_returned_by_trigger>
 echo $RUN_ID
 ```
-**What this does:**
 
-1. Stores the run ID in a shell variable (`RUN_ID`) so it can be reused easily in later commands.
-2. Avoids repeated copy-paste and keeps commands short, clean, and error-free.
+**Purpose:**
 
-### 5.2 Confirm run folder exists
+* Stores the run identifier in a variable for reuse
+* Prevents repeated copy-paste errors
+* Keeps subsequent commands clean and consistent
+
+---
+
+### 6.2 Confirm run folder creation
 
 ```bash
 ls -la "runs/$RUN_ID"
 ```
 
-Add screenshot:
+Expected:
 
-* Screenshot A3: run folder present under `runs/`
+* `metadata/`
+* `reports/`
+* `logs/`
+
+Screenshot to capture:
+
+* Screenshot A3: run folder visible under `runs/`
 
 ---
 
-## 6) Check Run Status (Metadata)
+## 7) Check Run Status (Metadata)
 
-### 6.1 View full metadata
+### 7.1 View complete metadata
 
 ```bash
 cat "runs/$RUN_ID/metadata/metadata.json" | jq .
 ```
 
-### 6.2 Check only status
+### 7.2 View only the status field
 
 ```bash
 cat "runs/$RUN_ID/metadata/metadata.json" | jq .status
 ```
 
-Expected final statuses (examples):
+Possible final statuses:
 
-* `POLICY_PASSED` (success)
-* `POLICY_FAILED` (OPA blocked)
-* `FAILED` (tool execution failed)
+* `POLICY_PASSED` → all checks passed
+* `POLICY_FAILED` → blocked by policy
+* `FAILED` → execution error
 
-Add screenshot:
+Screenshot to capture:
 
-* Screenshot A4: metadata.json and status value
+* Screenshot A4: metadata.json with status
 
 ---
 
-## 7) Verify All Stage Outputs Exist
+## 8) Verify Artifact Generation
 
-### 7.1 Check artifact files
+### 8.1 Confirm output files exist
 
 ```bash
 ls "runs/$RUN_ID/reports/iac/tfsec.json"
@@ -196,109 +235,107 @@ ls "runs/$RUN_ID/reports/tf/tfplan.json"
 ls "runs/$RUN_ID/reports/opa/opa_decision.json"
 ```
 
-Expected: all paths print successfully (no “No such file”).
+If paths are printed without errors, all stages completed successfully.
 
-Add screenshot:
+Screenshot to capture:
 
-* Screenshot A5: file existence checks
+* Screenshot A5: artifact file checks
 
 ---
 
-## 8) Demo Stage Outputs (Show What Each Tool Produced)
+## 9) Review Tool Outputs
 
-## 8.1 Stage: tfsec (Security Scan)
-
-### Open the tfsec report
+### 9.1 tfsec – Security Scan Results
 
 ```bash
 cat "runs/$RUN_ID/reports/iac/tfsec.json" | jq .
 ```
 
-### Optional: Count findings (if schema has `results`)
+Optional:
 
 ```bash
 cat "runs/$RUN_ID/reports/iac/tfsec.json" | jq '.results | length'
 ```
 
-Add screenshot:
+Interpretation:
 
-* Screenshot A6: tfsec report output / findings count
+* Empty results array means no security issues were detected
+
+Screenshot:
+
+* Screenshot A6: tfsec output
 
 ---
 
-## 8.2 Stage: Terraform Plan (No Apply)
-
-### Open plan JSON
+### 9.2 Terraform Plan (Read-only)
 
 ```bash
 cat "runs/$RUN_ID/reports/tf/tfplan.json" | jq .
 ```
 
-### Optional: Count resource changes (if present)
+Key points to highlight:
+
+* Resources detected
+* No apply performed
+* Plan generated successfully
+
+Optional:
 
 ```bash
 cat "runs/$RUN_ID/reports/tf/tfplan.json" | jq '.resource_changes | length'
 ```
 
-Add screenshot:
+Screenshot:
 
-* Screenshot A7: tfplan.json summary
+* Screenshot A7: terraform plan summary
 
 ---
 
-## 8.3 Stage: OPA Policy Decision
-
-### Open OPA decision JSON
+### 9.3 OPA Policy Decision
 
 ```bash
 cat "runs/$RUN_ID/reports/opa/opa_decision.json" | jq .
 ```
 
-What to highlight in demo:
+Highlight during demo:
 
-* Whether policy allowed or denied
-* Any deny messages (if present)
+* `allow: true` / `passed: true`
+* Empty `deny` list
 
-Add screenshot:
+Screenshot:
 
-* Screenshot A8: opa_decision.json output
+* Screenshot A8: OPA decision output
 
 ---
 
-## 9) Show Logs (Optional, for troubleshooting proof)
+## 10) Logs (Optional Validation)
 
-### 9.1 List logs
+### 10.1 List logs
 
 ```bash
 ls -la "runs/$RUN_ID/logs"
 ```
 
-### 9.2 Open a specific log (example)
-
-```bash
-ls -1 "runs/$RUN_ID/logs" | head -n 20
-```
-
-Then open relevant file (example):
+### 10.2 Open a log file
 
 ```bash
 cat "runs/$RUN_ID/logs/tfsec.log" | sed -n '1,120p'
 ```
 
-Add screenshot:
+Screenshot:
 
-* Screenshot A9: logs folder + first lines of a log
+* Screenshot A9: logs directory and sample log output
 
 ---
 
-## 10) Demo Scenario B: from-cloud (Current behavior: init only)
+## 11) Demo Scenario B: from-cloud (Init Only)
 
-This scenario currently runs only init stage (as per workflow).
-It creates run folder and metadata, but does not generate tfsec/plan/opa outputs yet.
+This scenario currently:
 
-### 10.1 Trigger from-cloud
+* Creates run folder and metadata
+* Does not yet generate tfsec, plan, or OPA outputs
 
-Replace placeholders with actual values if required by your workflow:
+### 11.1 Trigger from-cloud
 
 ```bash
 cat <<'JSON' | python3 -m app.api_entry
@@ -311,80 +348,35 @@ cat <<'JSON' | python3 -m app.api_entry
 JSON
 ```
 
-### 10.2 Verify output
+### 11.2 Verify run
 
 ```bash
 RUN_ID=$(ls -1 runs | tail -n 1)
-echo "$RUN_ID"
 ls -la "runs/$RUN_ID"
 cat "runs/$RUN_ID/metadata/metadata.json" | jq .
 ```
 
-Expected:
+Screenshot:
 
-* Run folder exists
-* metadata exists
-* reports for tfsec/plan/opa may not exist yet (init-only)
-
-Add screenshot:
-
-* Screenshot B1: from-cloud trigger + metadata verification
+* Screenshot B1: from-cloud run metadata
 
 ---
 
-## 11) Common Issues and Quick Fixes
+## 12) Demo Summary
 
-### 11.1 Status remains IN_PROGRESS for long time
+This demo shows that:
 
-Check logs:
-
-```bash
-ls -la "runs/$RUN_ID/logs"
-```
-
-And open the latest log:
-
-```bash
-LATEST_LOG=$(ls -1t "runs/$RUN_ID/logs" | head -n 1)
-echo "$LATEST_LOG"
-cat "runs/$RUN_ID/logs/$LATEST_LOG" | tail -n 120
-```
-
-### 11.2 Artifact file missing
-
-Verify the folder tree:
-
-```bash
-ls -R "runs/$RUN_ID" | sed -n '1,200p'
-```
-
-### 11.3 jq not installed
-
-Install on Ubuntu:
-
-```bash
-sudo apt-get update
-sudo apt-get install -y jq
-```
+* The pipeline can be triggered programmatically
+* Each execution is isolated using a unique run ID
+* Security, plan, and policy checks run without applying infrastructure
+* Results are stored as structured, machine-readable JSON
+* Final outcome is clearly recorded in metadata
 
 ---
 
-## 12) Demo Wrap-up (What was proven)
+## Appendix: Quick Demo Commands
 
-* Trigger accepts JSON request via stdin and returns a run_id
-* Run outputs are stored in a traceable folder structure under `runs/<run_id>`
-* Pipeline generates machine-readable JSON:
-
-  * tfsec report
-  * terraform plan output
-  * OPA policy decision
-* Final status is recorded in metadata (example: POLICY_PASSED)
-
----
-
-## Appendix: Quick Demo Command Pack (Copy/Paste)
-
-### A) Trigger run (from-repo)
+### Trigger run
 
 ```bash
 cat <<'JSON' | python3 -m app.api_entry
@@ -396,13 +388,7 @@ cat <<'JSON' | python3 -m app.api_entry
 JSON
 ```
 
-### B) Set RUN_ID (replace with your output)
-
-```bash
-RUN_ID=REPLACE_WITH_RUN_ID
-```
-
-### C) Verify status + outputs
+### Verify outputs
 
 ```bash
 cat "runs/$RUN_ID/metadata/metadata.json" | jq .status
@@ -410,12 +396,3 @@ ls "runs/$RUN_ID/reports/iac/tfsec.json"
 ls "runs/$RUN_ID/reports/tf/tfplan.json"
 ls "runs/$RUN_ID/reports/opa/opa_decision.json"
 ```
-
-### D) Open reports
-
-```bash
-cat "runs/$RUN_ID/reports/iac/tfsec.json" | jq .
-cat "runs/$RUN_ID/reports/tf/tfplan.json" | jq .
-cat "runs/$RUN_ID/reports/opa/opa_decision.json" | jq .
-```
-
