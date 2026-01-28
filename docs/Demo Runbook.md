@@ -133,7 +133,7 @@ Add screenshot:
 Example:
 
 ```bash
-RUN_ID=2026-01-28T083604Z-unknown-a43942
+RUN_ID=<use-the-one-printed-by-trigger>
 echo $RUN_ID
 ```
 **What this does:**
