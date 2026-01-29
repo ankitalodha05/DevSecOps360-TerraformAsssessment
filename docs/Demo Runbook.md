@@ -388,6 +388,13 @@ cat <<'JSON' | python3 -m app.api_entry
 JSON
 ```
 
+### Store the run ID in a variable
+
+```bash
+RUN_ID=<run_id_returned_by_trigger>
+echo $RUN_ID
+```
+
 ### Verify outputs
 
 ```bash
