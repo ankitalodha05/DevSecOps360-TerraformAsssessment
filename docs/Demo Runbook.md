@@ -66,7 +66,13 @@ When a run is triggered:
 5. Final status is updated in metadata
 
 ---
+## Current Integration Status (Phase-1 MVP)
 
+- The Terraform Assessment pipeline (tfsec → plan → OPA) is fully functional and demo-ready via CLI.
+- Phase-1 focuses on validating pipeline correctness, artifact generation, and policy outcomes.
+- UI and Backend API integration for triggering `/runs` and displaying results is currently in progress.
+- Until API wiring is completed, this runbook demonstrates the authoritative execution flow and expected outputs.
+---
 ## 3) Run Output Structure
 
 Each execution creates a dedicated folder:
