@@ -361,7 +361,21 @@ Screenshot:
 * Screenshot B1: from-cloud run metadata
 
 ---
+## UI & Backend Integration Reference (Phase-1)
 
+Once API integration is completed:
+
+- UI will trigger the assessment via POST `/runs`
+- Backend will internally invoke:
+  `python3 -m app.api_entry`
+- The API response will return:
+  - `run_id`
+  - `status`
+- UI will use `run_id` to fetch:
+  - metadata status
+  - tfsec, plan, and OPA reports
+
+---
 ## 12) Demo Summary
 
 This demo shows that:
