@@ -379,3 +379,17 @@ We will implement in this order:
 6. Add graph + ScoutSuite later
 
 ---
+# Scenario A vs Scenario B (Demo Differentiation)
+
+### Scenario B: from-repo
+Input: existing Terraform code (`repo_path` / `repo_url`)
+Flow: INIT → tfsec → plan → OPA → report  
+Key point: No Terraform generation needed.
+
+### Scenario A: from-cloud
+Input: Azure subscription (`subscription_id`, `tenant_id`, auth context)
+Flow: INIT → Terraformer (generate Terraform) → tfsec → normalize → plan → OPA → report  
+Key point: Terraformer output becomes the Terraform input for later stages.
+
+### Convergence
+After `tfplan.json` is generated, both scenarios follow the same OPA and reporting flow.
