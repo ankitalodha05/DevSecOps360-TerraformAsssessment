@@ -163,7 +163,7 @@ cat <<'JSON' | python3 -m app.api_entry
   "client": "ttms",
   "resources": "resource_group,virtual_network",
   "cloud": {
-    "resource_group": "ttms-prod-rg"
+    "resource_group": "ttms-aks"
   }
 }
 JSON
@@ -415,7 +415,7 @@ cat <<'JSON' | python3 -m app.api_entry
   "scenario": "from-cloud",
   "client": "ttms",
   "resources": "resource_group,virtual_network",
-  "cloud": { "resource_group": "ttms-prod-rg" }
+  "cloud": { "resource_group": "ttms-aks" }
 }
 JSON
 
