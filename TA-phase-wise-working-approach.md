@@ -1,4 +1,4 @@
-# TerraformAsssessment– Phase-wise Working Approach (Simple)
+# TerraformAsssessment– Phase-wise Working Approach
 
 ## Phase 1 – MVP (Current Phase)(Completed)
 
