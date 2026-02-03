@@ -1,39 +1,60 @@
 # Runbook: From-Cloud Terraform Assessment Pipeline
-**Terraformer → Prepare Workspace → Terraform Plan → tfsec → OPA (tfplan)**
+
+**Terraformer → Normalize Workspace → Terraform Plan → tfsec → OPA (tfplan)**
 
 ---
 
 ## Purpose
+
 This runbook documents the complete **from-cloud** execution flow of the Terraform Assessment pipeline.
 
 It demonstrates how existing Azure infrastructure is:
+
 1. Exported using Terraformer (scoped to a Resource Group)
-2. Normalized into a clean Terraform workspace
+2. Normalized into a clean, plan-ready Terraform workspace
 3. Planned safely (no backend, no apply)
-4. Security-scanned with tfsec
-5. Policy-validated using OPA on the Terraform plan
+4. Security-scanned using tfsec
+5. Policy-validated using OPA against the Terraform execution plan
 
 All execution artifacts are isolated under a single run folder:
+
+```
+runs/<run_id>/
 ```
 
-runs/<run_id>/
-
-````
-
 This runbook is suitable for:
-- Live demos
-- Knowledge transfer
-- Future troubleshooting
-- Interview explanation
+
+* Live demos
+* Knowledge transfer
+* Future troubleshooting
+* CI/CD execution reference
+* Interview and architectural explanation
+
+---
+
+## Design Guarantees
+
+This pipeline is intentionally designed to be:
+
+* Read-only against cloud resources (no apply)
+* Backend-free (no remote state, no locking)
+* Fully reproducible per run via isolated run folders
+* Safe for demos, audits, and CI execution
+* Deterministic via pinned providers and normalized input
+
+At no stage does this pipeline modify live infrastructure.
 
 ---
 
 ## Preconditions
 
 ### Project root
+
 ```bash
 cd ~/devsecops360/terraform-assessment
-````
+```
+
+---
 
 ### Required tools
 
@@ -42,6 +63,8 @@ cd ~/devsecops360/terraform-assessment
 * Terraformer
 * tfsec
 * OPA
+
+---
 
 ### Verify tools (copy-paste)
 
@@ -65,6 +88,8 @@ export ARM_CLIENT_SECRET="..."
 export ARM_TENANT_ID="..."
 export ARM_SUBSCRIPTION_ID="..."
 ```
+
+---
 
 ### Option B: Azure CLI
 
@@ -109,7 +134,9 @@ runs/<run_id>/
 
 ## Stage 1: Trigger From-Cloud Execution (Terraformer)
 
-Terraformer export **must be scoped to a Resource Group**.
+Terraformer export is **intentionally scoped to a Resource Group** to ensure controlled, predictable exports.
+
+---
 
 ### JSON input (IMPORTANT FIX #1)
 
@@ -119,11 +146,13 @@ Terraformer export **must be scoped to a Resource Group**.
 }
 ```
 
-Python maps this to:
+Python maps this internally to:
 
 ```
 --resource-group=ttms-prod-rg
 ```
+
+---
 
 ### Trigger command (copy-paste)
 
@@ -172,11 +201,15 @@ Expected:
 * `"status": "PASSED"`
 * `"tf_file_count" > 0`
 
+---
+
 ### Logs
 
 ```bash
 tail -n 80 "$RUN_PATH/logs/terraformer.log"
 ```
+
+---
 
 ### Artifacts
 
@@ -191,7 +224,19 @@ find "$RUN_PATH/artifacts/terraformer" -name "*.tf" | head -n 30
 
 ## Stage 1.5: Prepare Terraform Plan Workspace
 
-This stage copies Terraformer output into a clean plan workspace.
+Terraformer output is **not directly plan-safe for Azure**.
+
+This stage normalizes the generated code by:
+
+* Injecting required `azurerm` provider `features {}` block
+* Patching known AzureRM issues (e.g. invalid flow timeout)
+* Pinning provider source and version
+* Running `terraform fmt` for clean formatting
+* Producing a deterministic, plan-ready workspace
+
+This prevents false failures during `terraform init` and `terraform plan`.
+
+---
 
 ### Verify stage report
 
@@ -199,16 +244,18 @@ This stage copies Terraformer output into a clean plan workspace.
 cat "$RUN_PATH/reports/stage1_5_prepare_plan_workspace.json"
 ```
 
+Expected:
+
+* `"status": "PASSED"`
+* No reported patch errors
+
+---
+
 ### Verify workspace contents
 
 ```bash
 find "$RUN_PATH/workspaces/plan" -name "*.tf" | head -n 30
 ```
-
-Expected:
-
-* `"status": "PASSED"`
-* Workspace contains `.tf` files
 
 ---
 
@@ -219,6 +266,8 @@ All Terraform commands run inside:
 ```
 runs/<run_id>/workspaces/plan
 ```
+
+---
 
 ### Terraform init
 
@@ -231,6 +280,8 @@ terraform init \
   -no-color | tee "$RUN_PATH/logs/terraform_init.log"
 ```
 
+---
+
 ### Terraform plan
 
 ```bash
@@ -239,6 +290,8 @@ terraform plan \
   -no-color \
   -out plan.tfplan | tee "$RUN_PATH/logs/terraform_plan.log"
 ```
+
+---
 
 ### Convert plan to JSON (for OPA)
 
@@ -251,9 +304,15 @@ ls -la plan.tfplan plan.json
 
 ## tfsec Scan (CI-Friendly)
 
+tfsec performs **static security analysis** on Terraform code.
+
+---
+
 ### IMPORTANT FIX #2
 
 Use `--no-colour` to avoid ANSI characters in CI logs.
+
+---
 
 ### Run tfsec
 
@@ -267,6 +326,8 @@ tfsec . \
   2> "$RUN_PATH/logs/tfsec.log" || true
 ```
 
+---
+
 ### Review results
 
 ```bash
@@ -278,7 +339,11 @@ tail -n 60 "$RUN_PATH/logs/tfsec.log"
 
 ## OPA Policy Check (Terraform Plan)
 
-OPA validates the **actual execution plan**, not static code.
+OPA validates the **actual Terraform execution plan**, not static code.
+
+This ensures policies evaluate **what Terraform would create or modify**, not just what is written.
+
+---
 
 ### Run OPA
 
@@ -291,6 +356,8 @@ opa eval \
   --input plan.json \
   "data.tfplan.deny" | tee "$RUN_PATH/logs/opa_tfplan.log"
 ```
+
+---
 
 ### Interpretation
 
@@ -309,6 +376,8 @@ ls -la "$RUN_PATH/reports"
 ls -la "$RUN_PATH/workspaces/plan"
 ```
 
+---
+
 ### Quick stage summary
 
 ```bash
@@ -320,13 +389,25 @@ done
 
 ---
 
+## Common Failures & Fixes
+
+| Issue                          | Root Cause                    | Fixed In            |
+| ------------------------------ | ----------------------------- | ------------------- |
+| ResourceGroupNotFound          | Terraformer not scoped        | Stage 1 input       |
+| Missing azurerm features block | Terraformer output incomplete | Stage 1.5           |
+| Invalid flow timeout           | AzureRM schema mismatch       | Stage 1.5           |
+| terraform fmt rc=3             | Unformatted files             | Stage 1.5           |
+| ANSI characters in CI logs     | tfsec color output            | tfsec `--no-colour` |
+
+---
+
 ## Fast Demo (5-Minute Flow)
 
 ```bash
 cd ~/devsecops360/terraform-assessment
 
-# Set ARM_* or use az login
-export ARM_SUBSCRIPTION_ID="your-sub"
+# Authenticate
+export ARM_SUBSCRIPTION_ID="your-subscription-id"
 
 # Trigger
 cat <<'JSON' | python3 -m app.api_entry
@@ -345,6 +426,6 @@ JSON
 
 ## Status
 
-✅ Full from-cloud pipeline locked and verified:
+✅ **From-cloud Terraform Assessment pipeline fully locked and verified**
 
-**Terraformer → Prepare Workspace → Terraform Plan → tfsec → OPA**
+**Terraformer → Normalize Workspace → Terraform Plan → tfsec → OPA**
