@@ -1,6 +1,6 @@
 # TerraformAsssessment– Phase-wise Working Approach (Simple)
 
-## Phase 1 – MVP (Current Phase)
+## Phase 1 – MVP (Current Phase)(Completed)
 
 **Goal:** Make the assessment pipeline stable and reliable.
 
