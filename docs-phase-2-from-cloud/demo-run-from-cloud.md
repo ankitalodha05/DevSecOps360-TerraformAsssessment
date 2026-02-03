@@ -253,7 +253,7 @@ Everything exists → pipeline completed successfully.
 
 ---
 
-## Key Demo Takeaways (Say This at the End)
+## Key Demo Takeaways
 
 > This assessment is safe, repeatable, and fully automated.
 > It gives security, compliance, and engineering teams visibility into infrastructure **without risk**.
@@ -265,5 +265,3 @@ Everything exists → pipeline completed successfully.
 ✅ **From-Cloud Terraform Assessment completed successfully**
 
 **Terraformer → Normalize → Plan → tfsec → OPA**
-
----
