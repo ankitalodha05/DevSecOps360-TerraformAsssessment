@@ -1,4 +1,4 @@
-# DevSecOps360 – Phase-wise Working Approach (Simple)
+# TerraformAsssessment– Phase-wise Working Approach (Simple)
 
 ## Phase 1 – MVP (Current Phase)
 
