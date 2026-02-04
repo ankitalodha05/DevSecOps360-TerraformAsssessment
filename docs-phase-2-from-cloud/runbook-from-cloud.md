@@ -19,16 +19,16 @@ It demonstrates how existing Azure infrastructure is:
 All execution artifacts are isolated under a single run folder:
 
 ```
-runs/<run_id>/
+runs/<RUN_ID>/
 ```
 
 This runbook is suitable for:
 
 * Live demos
 * Knowledge transfer
-* Future troubleshooting
+* Troubleshooting
 * CI/CD execution reference
-* Interview and architectural explanation
+* Interview and architecture explanation
 
 ---
 
@@ -83,10 +83,10 @@ which opa && opa version || true
 ### Option A: Azure Service Principal
 
 ```bash
-export ARM_CLIENT_ID="..."
-export ARM_CLIENT_SECRET="..."
-export ARM_TENANT_ID="..."
-export ARM_SUBSCRIPTION_ID="..."
+export ARM_CLIENT_ID="<CLIENT_ID>"
+export ARM_CLIENT_SECRET="<CLIENT_SECRET>"
+export ARM_TENANT_ID="<TENANT_ID>"
+export ARM_SUBSCRIPTION_ID="<SUBSCRIPTION_ID>"
 ```
 
 ---
@@ -106,7 +106,7 @@ export ARM_SUBSCRIPTION_ID="$(az account show --query id -o tsv)"
 After execution, each run produces:
 
 ```
-runs/<run_id>/
+runs/<RUN_ID>/
 ├── metadata.json
 ├── logs/
 │   ├── terraformer.log
@@ -121,7 +121,7 @@ runs/<run_id>/
 │   └── opa_tfplan.json
 ├── artifacts/
 │   └── terraformer/
-│       └── generated/...
+│       └── azurerm/<service>/...
 └── workspaces/
     └── plan/
         ├── *.tf
@@ -134,22 +134,22 @@ runs/<run_id>/
 
 ## Stage 1: Trigger From-Cloud Execution (Terraformer)
 
-Terraformer export is **intentionally scoped to a Resource Group** to ensure controlled, predictable exports.
+Terraformer export is **intentionally scoped to a Resource Group** to ensure controlled and predictable exports.
 
 ---
 
-### JSON input (IMPORTANT FIX #1)
+### JSON input mapping
 
 ```json
 "cloud": {
-  "resource_group": "ttms-prod-rg"
+  "resource_group": "<RESOURCE_GROUP_NAME>"
 }
 ```
 
-Python maps this internally to:
+This is internally mapped to:
 
 ```
---resource-group=ttms-prod-rg
+--resource-group=<RESOURCE_GROUP_NAME>
 ```
 
 ---
@@ -160,11 +160,10 @@ Python maps this internally to:
 cat <<'JSON' | python3 -m app.api_entry
 {
   "scenario": "from-cloud",
-  "client": "ttms",
-  "resources":
-"resource_group,virtual_network,subnet,route_table,network_security_group,network_interface,public_ip,load_balancer,application_gateway,nat_gateway,virtual_machine,managed_disk,storage_account,container_registry,container_registry_webhook,app_service,app_service_plan,key_vault,private_endpoint,private_dns_zone,ssh_public_key",
+  "client": "<CLIENT_NAME>",
+  "resources": "resource_group,virtual_network,subnet,route_table,network_security_group,network_interface,public_ip,load_balancer,application_gateway,nat_gateway,virtual_machine,managed_disk,storage_account,container_registry,container_registry_webhook,app_service,app_service_plan,key_vault,private_endpoint,private_dns_zone,ssh_public_key",
   "cloud": {
-    "resource_group": "ttms-aks"
+    "resource_group": "<RESOURCE_GROUP_NAME>"
   }
 }
 JSON
@@ -173,15 +172,18 @@ JSON
 Expected output:
 
 ```json
-{"run_id":"<RUN_ID>","status":"IN_PROGRESS"}
+{"run_id":"<RUN_ID>","status":"COMPLETED"}
 ```
+
+> **Note:** Resources are exported only if they exist in the selected Resource Group.
+> Example: VMs will appear only if the RG contains virtual machines.
 
 ---
 
 ## Set RUN_ID
 
 ```bash
-RUN_ID="<PASTE_RUN_ID_HERE>"
+RUN_ID="<PASTE_RUN_ID>"
 RUN_PATH="runs/$RUN_ID"
 echo "$RUN_PATH"
 ls -la "$RUN_PATH"
@@ -214,13 +216,11 @@ tail -n 80 "$RUN_PATH/logs/terraformer.log"
 
 ### Artifacts
 
-Terraformer creates a `generated/` folder under its output root.
-
 ```bash
-find "$RUN_PATH/artifacts/terraformer" -maxdepth 4 -type d | head
 find "$RUN_PATH/artifacts/terraformer" -name "*.tf" | head -n 30
 ```
-### Quick proof key resources are exported (if present in RG)
+
+### Quick proof of key resources (if present in RG)
 
 ```bash
 grep -R 'resource "azurerm_windows_virtual_machine"\|resource "azurerm_linux_virtual_machine"\|resource "azurerm_virtual_machine"' -n "$RUN_PATH/artifacts/terraformer" | head
@@ -228,21 +228,24 @@ grep -R 'resource "azurerm_network_interface"' -n "$RUN_PATH/artifacts/terraform
 grep -R 'resource "azurerm_public_ip"' -n "$RUN_PATH/artifacts/terraformer" | head
 grep -R 'resource "azurerm_private_endpoint"' -n "$RUN_PATH/artifacts/terraformer" | head
 ```
+
+> **Note (Managed Disks):**
+> OS disks are usually defined inside the VM resource under `os_disk {}`.
+> Standalone `azurerm_managed_disk` resources may be `0` — this is not a failure.
+
 ---
 
 ## Stage 1.5: Prepare Terraform Plan Workspace
 
-Terraformer output is **not directly plan-safe for Azure**.
+Terraformer output is **not directly plan-safe**.
 
-This stage normalizes the generated code by:
+This stage performs minimal normalization:
 
-* Injecting required `azurerm` provider `features {}` block
-* Patching known AzureRM issues (e.g. invalid flow timeout)
-* Pinning provider source and version
-* Running `terraform fmt` for clean formatting
-* Producing a deterministic, plan-ready workspace
-
-This prevents false failures during `terraform init` and `terraform plan`.
+* Injects required `azurerm` provider `features {}`
+* Patches known AzureRM issues
+* Pins provider source and version
+* Runs `terraform fmt`
+* Produces a deterministic, plan-ready workspace
 
 ---
 
@@ -272,7 +275,7 @@ find "$RUN_PATH/workspaces/plan" -name "*.tf" | head -n 30
 All Terraform commands run inside:
 
 ```
-runs/<run_id>/workspaces/plan
+runs/<RUN_ID>/workspaces/plan
 ```
 
 ---
@@ -316,12 +319,6 @@ tfsec performs **static security analysis** on Terraform code.
 
 ---
 
-### IMPORTANT FIX #2
-
-Use `--no-colour` to avoid ANSI characters in CI logs.
-
----
-
 ### Run tfsec
 
 ```bash
@@ -349,8 +346,6 @@ tail -n 60 "$RUN_PATH/logs/tfsec.log"
 
 OPA validates the **actual Terraform execution plan**, not static code.
 
-This ensures policies evaluate **what Terraform would create or modify**, not just what is written.
-
 ---
 
 ### Run OPA
@@ -376,8 +371,6 @@ opa eval \
 
 ## Final Verification
 
-### Folder check
-
 ```bash
 ls -la "$RUN_PATH/logs"
 ls -la "$RUN_PATH/reports"
@@ -399,13 +392,13 @@ done
 
 ## Common Failures & Fixes
 
-| Issue                          | Root Cause                    | Fixed In            |
-| ------------------------------ | ----------------------------- | ------------------- |
-| ResourceGroupNotFound          | Terraformer not scoped        | Stage 1 input       |
-| Missing azurerm features block | Terraformer output incomplete | Stage 1.5           |
-| Invalid flow timeout           | AzureRM schema mismatch       | Stage 1.5           |
-| terraform fmt rc=3             | Unformatted files             | Stage 1.5           |
-| ANSI characters in CI logs     | tfsec color output            | tfsec `--no-colour` |
+| Issue                    | Root Cause              | Fixed In      |
+| ------------------------ | ----------------------- | ------------- |
+| ResourceGroupNotFound    | Incorrect RG name       | Stage-1 input |
+| Missing azurerm features | Terraformer output gap  | Stage-1.5     |
+| Invalid flow timeout     | AzureRM schema mismatch | Stage-1.5     |
+| terraform fmt rc=3       | Unformatted files       | Stage-1.5     |
+| ANSI chars in logs       | tfsec color output      | `--no-colour` |
 
 ---
 
@@ -414,26 +407,24 @@ done
 ```bash
 cd ~/devsecops360/terraform-assessment
 
-# Authenticate
-export ARM_SUBSCRIPTION_ID="your-subscription-id"
+export ARM_SUBSCRIPTION_ID="<SUBSCRIPTION_ID>"
 
-# Trigger
 cat <<'JSON' | python3 -m app.api_entry
 {
   "scenario": "from-cloud",
-  "client": "ttms",
+  "client": "<CLIENT_NAME>",
   "resources": "resource_group,virtual_network,subnet,route_table,network_security_group,network_interface,public_ip,load_balancer,application_gateway,nat_gateway,virtual_machine,managed_disk,storage_account,container_registry,container_registry_webhook,app_service,app_service_plan,key_vault,private_endpoint,private_dns_zone,ssh_public_key",
-  "cloud": { "resource_group": "ttms-aks" }
+  "cloud": {
+    "resource_group": "<RESOURCE_GROUP_NAME>"
+  }
 }
 JSON
-
-# Follow RUN_ID → inspect runs/<run_id>/
 ```
 
 ---
 
 ## Status
 
-✅ **From-cloud Terraform Assessment pipeline fully locked and verified**
+✅ **From-cloud Terraform Assessment pipeline verified**
 
 **Terraformer → Normalize Workspace → Terraform Plan → tfsec → OPA**
