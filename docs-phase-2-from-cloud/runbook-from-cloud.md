@@ -161,7 +161,8 @@ cat <<'JSON' | python3 -m app.api_entry
 {
   "scenario": "from-cloud",
   "client": "ttms",
-  "resources": "resource_group,virtual_network",
+  "resources":
+"resource_group,virtual_network,subnet,route_table,network_security_group,network_interface,public_ip,load_balancer,application_gateway,nat_gateway,virtual_machine,managed_disk,storage_account,container_registry,container_registry_webhook,app_service,app_service_plan,key_vault,private_endpoint,private_dns_zone,ssh_public_key",
   "cloud": {
     "resource_group": "ttms-aks"
   }
@@ -219,7 +220,14 @@ Terraformer creates a `generated/` folder under its output root.
 find "$RUN_PATH/artifacts/terraformer" -maxdepth 4 -type d | head
 find "$RUN_PATH/artifacts/terraformer" -name "*.tf" | head -n 30
 ```
+### Quick proof key resources are exported (if present in RG)
 
+```bash
+grep -R 'resource "azurerm_windows_virtual_machine"\|resource "azurerm_linux_virtual_machine"\|resource "azurerm_virtual_machine"' -n "$RUN_PATH/artifacts/terraformer" | head
+grep -R 'resource "azurerm_network_interface"' -n "$RUN_PATH/artifacts/terraformer" | head
+grep -R 'resource "azurerm_public_ip"' -n "$RUN_PATH/artifacts/terraformer" | head
+grep -R 'resource "azurerm_private_endpoint"' -n "$RUN_PATH/artifacts/terraformer" | head
+```
 ---
 
 ## Stage 1.5: Prepare Terraform Plan Workspace
@@ -414,7 +422,7 @@ cat <<'JSON' | python3 -m app.api_entry
 {
   "scenario": "from-cloud",
   "client": "ttms",
-  "resources": "resource_group,virtual_network",
+  "resources": "resource_group,virtual_network,subnet,route_table,network_security_group,network_interface,public_ip,load_balancer,application_gateway,nat_gateway,virtual_machine,managed_disk,storage_account,container_registry,container_registry_webhook,app_service,app_service_plan,key_vault,private_endpoint,private_dns_zone,ssh_public_key",
   "cloud": { "resource_group": "ttms-aks" }
 }
 JSON
