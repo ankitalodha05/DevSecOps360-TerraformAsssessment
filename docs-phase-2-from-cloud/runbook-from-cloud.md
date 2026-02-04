@@ -451,3 +451,31 @@ JSON
 
 **Terraformer → Normalize Workspace → Terraform Plan → tfsec → OPA**
 
+---
+# Terraform Assessment – Phase-1 Summary
+
+## Goal
+Assess existing Azure infrastructure from a security and policy perspective.
+
+## What Phase-1 Does
+- Runs `terraform validate` and `terraform plan`
+- Performs security checks using **tfsec**
+- Evaluates policies using **OPA** at plan level
+- Operates in **read-only mode**
+
+## What It Scans
+- Azure VMs
+- Core Azure services covered by Terraform
+
+## Outputs
+- Structured security and policy results
+- JSON artifacts for API and UI consumption
+
+## What It Does NOT Do
+- No `terraform apply`
+- No infrastructure changes
+- No remediation or auto-fix
+
+## Status
+✅ Phase-1 is complete, safe, and stable.
+
