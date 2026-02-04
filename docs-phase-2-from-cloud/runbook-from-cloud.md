@@ -28,7 +28,7 @@ This runbook is suitable for:
 * Knowledge transfer
 * Troubleshooting
 * CI/CD execution reference
-* Interview and architecture explanation
+* Interview and architectural explanation
 
 ---
 
@@ -175,8 +175,8 @@ Expected output:
 {"run_id":"<RUN_ID>","status":"COMPLETED"}
 ```
 
-> **Note:** Resources are exported only if they exist in the selected Resource Group.
-> Example: VMs will appear only if the RG contains virtual machines.
+> **Note:** Resources are exported only if they exist in the selected Resource Group
+> (for example, VMs will appear only if the RG contains virtual machines).
 
 ---
 
@@ -311,6 +311,16 @@ terraform show -json plan.tfplan > plan.json
 ls -la plan.tfplan plan.json
 ```
 
+> **Note (Automated Runs):**
+> In automated pipeline execution, **Stage 6** generates Terraform plan artifacts at:
+>
+> ```
+> reports/tf/tfplan.bin
+> reports/tf/tfplan.json
+> ```
+>
+> These artifacts are consumed by downstream OPA evaluation and the API/UI.
+
 ---
 
 ## tfsec Scan (CI-Friendly)
@@ -359,6 +369,18 @@ opa eval \
   --input plan.json \
   "data.tfplan.deny" | tee "$RUN_PATH/logs/opa_tfplan.log"
 ```
+
+> **Note (Production Execution):**
+> In production runs, **Stage 7** wraps this command and:
+>
+> * Reads `reports/tf/tfplan.json`
+> * Writes the policy decision to:
+>
+> ```
+> reports/opa/opa_decision.json
+> ```
+>
+> This structured output is consumed by the UI and API layers.
 
 ---
 
@@ -428,3 +450,4 @@ JSON
 ✅ **From-cloud Terraform Assessment pipeline verified**
 
 **Terraformer → Normalize Workspace → Terraform Plan → tfsec → OPA**
+
