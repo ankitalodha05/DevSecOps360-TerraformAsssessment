@@ -1,4 +1,4 @@
-#End-to-End Terraformer Execution Roadmap  
+# End-to-End Terraformer Execution Roadmap  
 *(UI → Backend → Terraformer → Security & Policy Outputs)*
 
 ---
@@ -13,7 +13,7 @@ It covers the journey **from a user entering details in the UI** to the **final 
 - Security scanning (tfsec)
 - Policy enforcement (OPA)
 
-> ⚠️ At no point does this pipeline apply or modify cloud resources.  
+>  At no point does this pipeline apply or modify cloud resources.  
 > The entire flow is **safe, read-only, and assessment-only**.
 
 ---
