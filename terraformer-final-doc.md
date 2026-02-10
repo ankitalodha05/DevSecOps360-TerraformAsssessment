@@ -358,7 +358,7 @@ JSON
 
 ---
 
-## 12. Key Takeaway (For Leadership)
+## 12. Key Takeaway
 
 DevSecOps360 provides a **safe, automated, and repeatable Terraform assessment pipeline** that converts cloud or repository infrastructure into a Terraform plan and evaluates it using security and policy controls—**without applying any changes**.
 
