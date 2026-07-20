@@ -127,7 +127,7 @@ Expected:
 az group list -o table
 
 az resource list \
-  --resource-group ttms-aks \
+  --resource-group timoweb \
   --query "[].{Name:name,Type:type}" \
   -o table
 ```
@@ -139,7 +139,7 @@ az resource list \
 ``` bash
 terraformer import azure \
   --resources virtual_network \
-  --resource-group ttms-aks \
+  --resource-group timoweb \
   --path-output /tmp/tf_out \
   --compact
 ```
@@ -163,7 +163,7 @@ cat <<'JSON' | python3 -m app.api_entry
   "client":"ttms",
   "resources":"virtual_network",
   "cloud":{
-    "resource_group":"ttms-aks"
+    "resource_group":"timoweb"
   }
 }
 JSON
@@ -178,7 +178,7 @@ cat <<'JSON' | python3 -m app.api_entry
   "client":"ttms",
   "resources":"storage_account",
   "cloud":{
-    "resource_group":"terraformer-testing"
+    "resource_group":"timoweb"
   }
 }
 JSON
