@@ -1,28 +1,56 @@
-# DevSecOps360 -- Terraform Assessment Implementation Runbook
+# DevSecOps360 -- Terraform Assessment (Demo Runbook)
 
 ## Overview
 
-This runbook describes how to execute and verify the Terraform
-Assessment pipeline for both supported scenarios:
+This runbook demonstrates the Terraform Assessment workflow end-to-end
+for both supported execution scenarios:
 
 -   **Scenario A -- From Repository**
 -   **Scenario B -- From Cloud (Terraformer)**
 
-The assessment pipeline performs:
+It explains:
 
-1.  tfsec security scan
-2.  Terraform validate
-3.  Terraform plan (read-only)
-4.  OPA policy evaluation
+-   How an assessment run is triggered
+-   How each run is uniquely identified
+-   End-to-end execution flow
+-   Generated artifacts
+-   How to verify each stage
+-   How to interpret the final assessment result
 
-For **from-cloud**, Terraformer first exports Azure resources and
-prepares a Terraform workspace before the assessment stages run.
+------------------------------------------------------------------------
+
+## Current Integration Status (Phase-1 MVP)
+
+The CLI implementation is complete for both supported scenarios.
+
+### Supported Scenarios
+
+-   From Repository
+-   From Cloud (Terraformer)
+
+### Implemented Stages
+
+-   Terraformer Export (From Cloud)
+-   Prepare Plan Workspace
+-   tfsec Security Scan
+-   Terraform Validate
+-   Terraform Plan (Read-only)
+-   OPA Policy Evaluation
+
+Each execution generates:
+
+-   Metadata
+-   Logs
+-   Tool Reports
+-   Terraform Artifacts
+
+UI and Backend API integration is planned as the next phase.
 
 ------------------------------------------------------------------------
 
 # 1. Prerequisites
 
-## Required tools
+## Required Tools
 
 ``` bash
 python3 --version
@@ -32,11 +60,18 @@ az version
 jq --version
 ```
 
-## Azure Login (from-cloud only)
+If jq is unavailable, use:
+
+``` bash
+python3 -m json.tool <file.json>
+```
+
+------------------------------------------------------------------------
+
+## Azure Authentication (From Cloud)
 
 ``` bash
 az login
-az account show
 
 export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
 export ARM_TENANT_ID=$(az account show --query tenantId -o tsv)
@@ -53,7 +88,7 @@ echo $ARM_TENANT_ID
 cd ~/devsecops360/terraform-assessment
 ```
 
-Repository layout:
+Expected:
 
     app/
     examples/
@@ -61,16 +96,104 @@ Repository layout:
 
 ------------------------------------------------------------------------
 
-# 3. Scenario A -- From Repository
+# 3. High-Level Execution Flow
+
+## Scenario A -- From Repository
+
+``` text
+Terraform Code
+      │
+      ▼
+tfsec
+      │
+      ▼
+terraform validate
+      │
+      ▼
+terraform plan
+      │
+      ▼
+OPA Policy Evaluation
+      │
+      ▼
+Assessment Summary
+```
+
+## Scenario B -- From Cloud
+
+``` text
+Azure Resource Group
+      │
+      ▼
+Terraformer Export
+      │
+      ▼
+Prepare Plan Workspace
+      │
+      ▼
+tfsec
+      │
+      ▼
+terraform validate
+      │
+      ▼
+terraform plan
+      │
+      ▼
+OPA Policy Evaluation
+      │
+      ▼
+Assessment Summary
+```
+
+------------------------------------------------------------------------
+
+# 4. Run Output Structure
+
+    runs/<run_id>/
+    ├── metadata/
+    │   └── metadata.json
+    ├── logs/
+    │   ├── terraformer.log
+    │   ├── tfsec.log
+    │   ├── tf_validate.log
+    │   ├── tf_plan.log
+    │   └── opa.log
+    ├── reports/
+    │   ├── stage1_terraformer.json
+    │   ├── stage1_5_prepare_plan_workspace.json
+    │   ├── iac/
+    │   │   └── tfsec.json
+    │   ├── tf/
+    │   │   ├── validate_summary.json
+    │   │   ├── plan_summary.json
+    │   │   ├── tfplan.bin
+    │   │   └── tfplan.json
+    │   └── opa/
+    │       └── opa_decision.json
+    ├── artifacts/
+    │   └── terraformer/
+    └── workspaces/
+        └── plan/
+
+------------------------------------------------------------------------
+
+# 5. Scenario A -- From Repository
+
+## Verify Sample Code
+
+``` bash
+ls -la examples/tf_local
+```
 
 ## Trigger Assessment
 
 ``` bash
 cat <<'JSON' | python3 -m app.api_entry
 {
-  "scenario": "from-repo",
-  "client": "ttms",
-  "repo_path": "examples/tf_local"
+  "scenario":"from-repo",
+  "client":"ttms",
+  "repo_path":"examples/tf_local"
 }
 JSON
 ```
@@ -79,49 +202,31 @@ Expected:
 
 ``` json
 {
-  "run_id":"...",
+  "run_id":"<run_id>",
   "status":"COMPLETED"
 }
 ```
 
-------------------------------------------------------------------------
-
-## Verify Output
+Store Run ID
 
 ``` bash
 RUN_ID=<run_id>
-
-python3 -m json.tool runs/$RUN_ID/metadata/metadata.json
-
-ls runs/$RUN_ID/reports/iac/tfsec.json
-ls runs/$RUN_ID/reports/tf/tfplan.json
-ls runs/$RUN_ID/reports/opa/opa_decision.json
 ```
 
-------------------------------------------------------------------------
-
-## Review Results
+Verify:
 
 ``` bash
+python3 -m json.tool runs/$RUN_ID/metadata/metadata.json
 python3 -m json.tool runs/$RUN_ID/reports/iac/tfsec.json
-
 python3 -m json.tool runs/$RUN_ID/reports/tf/plan_summary.json
-
 python3 -m json.tool runs/$RUN_ID/reports/opa/opa_decision.json
 ```
 
-Expected:
-
--   tfsec completed
--   Terraform plan generated
--   OPA passed
--   Metadata status = POLICY_PASSED
-
 ------------------------------------------------------------------------
 
-# 4. Scenario B -- From Cloud
+# 6. Scenario B -- From Cloud
 
-## Verify Azure Resources
+## Verify Resource Group
 
 ``` bash
 az group list -o table
@@ -132,29 +237,9 @@ az resource list \
   -o table
 ```
 
-------------------------------------------------------------------------
+## Trigger Assessment
 
-## Manual Terraformer Test
-
-``` bash
-terraformer import azure \
-  --resources virtual_network \
-  --resource-group timoweb \
-  --path-output /tmp/tf_out \
-  --compact
-```
-
-Verify:
-
-``` bash
-find /tmp/tf_out
-```
-
-------------------------------------------------------------------------
-
-## Trigger From Cloud Assessment
-
-Example Virtual Network:
+Example:
 
 ``` bash
 cat <<'JSON' | python3 -m app.api_entry
@@ -163,122 +248,140 @@ cat <<'JSON' | python3 -m app.api_entry
   "client":"ttms",
   "resources":"virtual_network",
   "cloud":{
-    "resource_group":"timoweb"
+      "resource_group":"timoweb"
   }
 }
 JSON
 ```
 
-Example Storage Account:
+Expected
+
+``` json
+{
+  "run_id":"<run_id>",
+  "status":"COMPLETED"
+}
+```
+
+Store Run ID
+
+``` bash
+RUN_ID=<run_id>
+```
+
+Verify:
+
+``` bash
+python3 -m json.tool runs/$RUN_ID/reports/stage1_terraformer.json
+python3 -m json.tool runs/$RUN_ID/reports/stage1_5_prepare_plan_workspace.json
+python3 -m json.tool runs/$RUN_ID/reports/iac/tfsec.json
+python3 -m json.tool runs/$RUN_ID/reports/tf/validate_summary.json
+python3 -m json.tool runs/$RUN_ID/reports/tf/plan_summary.json
+python3 -m json.tool runs/$RUN_ID/reports/opa/opa_decision.json
+python3 -m json.tool runs/$RUN_ID/metadata/metadata.json
+```
+
+------------------------------------------------------------------------
+
+# 7. Result Interpretation
+
+  Stage                Expected
+  -------------------- ---------------
+  Terraformer          PASSED
+  Prepare Workspace    PASSED
+  tfsec                RETURN_CODE=0
+  Terraform Validate   passed=true
+  Terraform Plan       passed=true
+  OPA                  allow=true
+  Metadata             POLICY_PASSED
+
+------------------------------------------------------------------------
+
+# 8. Troubleshooting
+
+## ARM_SUBSCRIPTION_ID not set
+
+``` bash
+export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+export ARM_TENANT_ID=$(az account show --query tenantId -o tsv)
+```
+
+## jq issue
+
+Use:
+
+``` bash
+python3 -m json.tool <json-file>
+```
+
+## Terraformer exports zero resources
+
+Verify Azure resources:
+
+``` bash
+az resource list --resource-group <rg> -o table
+```
+
+Choose the correct Terraformer resource type.
+
+------------------------------------------------------------------------
+
+# 9. Demo Summary
+
+The Terraform Assessment pipeline now supports both execution scenarios.
+
+## From Repository
+
+-   tfsec
+-   Terraform Validate
+-   Terraform Plan
+-   OPA
+
+## From Cloud
+
+-   Terraformer Export
+-   Prepare Workspace
+-   tfsec
+-   Terraform Validate
+-   Terraform Plan
+-   OPA
+
+Every assessment generates:
+
+-   Metadata
+-   Logs
+-   Reports
+-   Terraform Artifacts
+
+No infrastructure changes are applied during assessment.
+
+------------------------------------------------------------------------
+
+# Appendix -- Quick Commands
+
+## From Repository
+
+``` bash
+cat <<'JSON' | python3 -m app.api_entry
+{
+  "scenario":"from-repo",
+  "client":"ttms",
+  "repo_path":"examples/tf_local"
+}
+JSON
+```
+
+## From Cloud
 
 ``` bash
 cat <<'JSON' | python3 -m app.api_entry
 {
   "scenario":"from-cloud",
   "client":"ttms",
-  "resources":"storage_account",
+  "resources":"virtual_network",
   "cloud":{
-    "resource_group":"timoweb"
+      "resource_group":"timoweb"
   }
 }
 JSON
 ```
-
-------------------------------------------------------------------------
-
-## Verify Stages
-
-``` bash
-RUN_ID=<run_id>
-
-python3 -m json.tool runs/$RUN_ID/reports/stage1_terraformer.json
-
-python3 -m json.tool runs/$RUN_ID/reports/stage1_5_prepare_plan_workspace.json
-
-python3 -m json.tool runs/$RUN_ID/reports/tf/validate_summary.json
-
-python3 -m json.tool runs/$RUN_ID/reports/tf/plan_summary.json
-
-python3 -m json.tool runs/$RUN_ID/reports/opa/opa_decision.json
-```
-
-Expected pipeline:
-
-    Terraformer
-        ↓
-    Prepare Workspace
-        ↓
-    tfsec
-        ↓
-    Terraform Validate
-        ↓
-    Terraform Plan
-        ↓
-    OPA
-
-------------------------------------------------------------------------
-
-# 5. Run Folder
-
-    runs/<run_id>/
-    ├── metadata/
-    ├── logs/
-    ├── reports/
-    │   ├── iac/
-    │   ├── tf/
-    │   ├── opa/
-    │   ├── stage1_terraformer.json
-    │   └── stage1_5_prepare_plan_workspace.json
-    └── workspaces/
-
-------------------------------------------------------------------------
-
-# 6. Troubleshooting
-
-## ARM_SUBSCRIPTION_ID missing
-
-``` bash
-export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
-```
-
-## jq fails
-
-Use:
-
-``` bash
-python3 -m json.tool <file.json>
-```
-
-## Terraformer exports zero resources
-
-Verify:
-
-``` bash
-az resource list --resource-group <rg> -o table
-```
-
-Choose the matching Terraformer resource type.
-
-------------------------------------------------------------------------
-
-# 7. Success Criteria
-
-Both scenarios should produce:
-
--   Completed run
--   Metadata generated
--   tfsec report
--   Terraform plan
--   OPA decision
--   Logs
--   POLICY_PASSED (when no violations exist)
-
-------------------------------------------------------------------------
-
-# 8. Future Enhancements
-
--   Multi-resource assessment
--   Multi-cloud support (Azure, AWS, GCP)
--   REST API integration
--   UI integration
--   Parallel assessment execution
